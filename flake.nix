@@ -11,12 +11,12 @@
         dpend = nixpkgs.legacyPackages.${system}.stdenv.mkDerivation {
           name = "dpend";
           version = "1.0.0";
-          src = ./src;
+          src = ./.;
           buildInputs = [ ];
-          buildPhase = "gcc -lm -g -Wall -Werror main.c display.c sim.c util.c -o dpend";
+          buildPhase = "./build release";
           installPhase = ''
             mkdir -p $out/bin
-            cp dpend $out/bin
+            cp out/dpend $out/bin
           '';
         };
       });
