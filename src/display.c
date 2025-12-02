@@ -130,13 +130,11 @@ bool display_render(struct pendulum_chain *chain, const char *info) {
 	        rect_to = get_fit_rectf(rect_stretched.size, RECTF2(POSF2(0), poss2f(SCREEN.size))); // letter-box rect to the display screen size
 
 	struct posf pend_t = POSF(0, 0);
-	float pend_angle = 0;
 	for (size_t i = 0; i < chain->count; ++i) {
 		struct pendulum *p = &chain->chain[i];
 		struct posf pend_f = pend_t;
-		pend_angle += p->angle;
-		pend_t.x += cos(pend_angle) * p->length;
-		pend_t.y += sin(pend_angle) * p->length;
+		pend_t.x += sin(p->angle) * p->length;
+		pend_t.y += cos(p->angle) * p->length;
 
 		// draw line
 		struct posf cell_f = map_rectf(pend_f, rect_from, rect_to),

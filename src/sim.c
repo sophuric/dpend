@@ -1,6 +1,6 @@
 #include "sim.h"
 #include <math.h>
-#include<stdlib.h>
+
 void step(struct pendulum_chain *chain) {
 	for (size_t i = 0; i < chain->count; ++i) {
 		// testing
