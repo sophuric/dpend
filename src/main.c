@@ -87,9 +87,8 @@ int main() {
 		if (signal == SIGKILL || signal == SIGSTOP) continue; // can't handle these
 		sigaction(signal, &sa, NULL);
 	}
-	if (!start()) return 3;
 
-	struct pendulum_chain chain = {
+	struct pendulum_system system = {
 	        .count = 2,
 	        .gravity = 1,
 	        .chain =
@@ -97,6 +96,10 @@ int main() {
 	                                     {.mass = 1, .length = 1, .angular_velocity = 0, .angle = 0.2},
 	                                     {.mass = 1, .length = 1, .angular_velocity = 0, .angle = 1}}
     };
+
+	if (!pend_init(&system)) goto fail;
+
+	if (!start()) return 3;
 
 #define WAIT ((nsec_t) SEC * 0.01)
 	nsec_t dest = 0;
@@ -111,14 +114,16 @@ int main() {
 
 		if (dest == time + WAIT || nsleep(delay)) {
 			time = get_time();
-			step(&chain);
+			if (!pend_step(&system)) goto fail;
 			nsec_t diff_time = get_time() - time;
 			int printf_res = snprintf(str, sizeof(str), "Simulation time: %6" PRIuMAX "ns", diff_time);
 			if (printf_res < 0 || printf_res >= sizeof(str)) goto fail;
 			dest += WAIT; // add delay amount to destination time so we can precisely run the code on that interval
 		}
-		if (!display_render(&chain, str)) goto fail;
+		if (!display_render(&system, str)) goto fail;
 	}
+
+	if (!pend_free(&system)) goto fail;
 	return 0;
 fail:
 	if (!stop()) return 3;

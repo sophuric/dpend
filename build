@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # TODO: find a build system
 mkdir -p out
-gcc_args=(-lm -Wall -Werror -Wno-error=unused-{{but-set-,}{parameter,variable},const-variable,function,label,local-typedefs,macros,value,variable} src/{main.c,display.c,sim.c,util.c} -o out/dpend)
+gcc_args=(-lm -lsymengine -Wall -Werror -Wno-error=unused-{{but-set-,}{parameter,variable},const-variable,function,label,local-typedefs,macros,value,variable} src/{main.c,display.c,sim.c,util.c} -o out/dpend)
 case "$1" in
 release)
 	gcc -O2 "${gcc_args[@]}"

@@ -83,7 +83,7 @@ fail:
 	return false;
 }
 
-bool display_render(struct pendulum_chain *chain, const char *info) {
+bool display_render(struct pendulum_system *system, const char *info) {
 	bool res = false;
 
 	eprintf("\x1b[H"); // move to start
@@ -122,7 +122,7 @@ bool display_render(struct pendulum_chain *chain, const char *info) {
 	if (needs_clear) memset(SCREEN.buf, 0x00, SCREEN.buf_size);
 
 	float total_length = 0;
-	for (size_t i = 0; i < chain->count; ++i) total_length += chain->chain[i].length;
+	for (unsigned i = 0; i < system->count; ++i) total_length += system->chain[i].length;
 
 	struct rectf
 	        rect_from = RECTF(-total_length, -total_length, total_length * 2, total_length * 2), // max distance the pendulum can reach
@@ -130,8 +130,8 @@ bool display_render(struct pendulum_chain *chain, const char *info) {
 	        rect_to = get_fit_rectf(rect_stretched.size, RECTF2(POSF2(0), poss2f(SCREEN.size))); // letter-box rect to the display screen size
 
 	struct posf pend_t = POSF(0, 0);
-	for (size_t i = 0; i < chain->count; ++i) {
-		struct pendulum *p = &chain->chain[i];
+	for (unsigned i = 0; i < system->count; ++i) {
+		struct pendulum *p = &system->chain[i];
 		struct posf pend_f = pend_t;
 		pend_t.x += sin(p->angle) * p->length;
 		pend_t.y += cos(p->angle) * p->length;
