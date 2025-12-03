@@ -156,6 +156,19 @@ bool display_render(struct pendulum_chain *chain, const char *info) {
 		}
 	}
 
+	if (info) {
+		eprintf("\x1b[H");
+		const char *newline;
+		do {
+			newline = strchr(info, '\n');
+			size_t nbyte = newline ? newline - info : strlen(info);
+			eprintf("\x1b[2K");                                     // clear line
+			if (nbyte != write(DISPLAY_FD, info, nbyte)) goto fail; // write up until first newline
+			eprintf("\x1b[E");                                      // next line
+			info = newline + 1;
+		} while (newline);
+	}
+
 	struct poss cursor = POSS2(0);
 
 	struct poss term;
@@ -191,11 +204,6 @@ bool display_render(struct pendulum_chain *chain, const char *info) {
 			eprintf("%s", c);
 			++cursor.x;
 		}
-
-	if (info) {
-		eprintf("\x1b[H");
-		eprintf("%s", info);
-	}
 
 	res = true;
 fail:

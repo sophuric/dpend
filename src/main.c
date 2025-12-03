@@ -110,16 +110,17 @@ int main() {
 		nsec_t delay = dest - time;          // wait until destination time
 
 		if (dest == time + WAIT || nsleep(delay)) {
+			time = get_time();
 			step(&chain);
-			dest += WAIT; // add exactly one second to destination time so we can precisely run code every
+			nsec_t diff_time = get_time() - time;
+			int printf_res = snprintf(str, sizeof(str), "Simulation time: %6" PRIuMAX "ns", diff_time);
+			if (printf_res < 0 || printf_res >= sizeof(str)) goto fail;
+			dest += WAIT; // add delay amount to destination time so we can precisely run the code on that interval
 		}
-		nsec_t last_time = get_time();
-		if (!display_render(&chain, str)) {
-			nsec_t diff_time = get_time() - last_time;
-			snprintf(str, sizeof(str), "Simulation time:%" PRIuMAX "aa", diff_time);
-			if (!stop()) return 3;
-			return 1;
-		}
+		if (!display_render(&chain, str)) goto fail;
 	}
 	return 0;
+fail:
+	if (!stop()) return 3;
+	return 1;
 }
