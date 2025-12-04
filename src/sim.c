@@ -1,4 +1,5 @@
 #include "sim.h"
+#include<unistd.h>
 
 static unsigned log10i(size_t x) {
 	unsigned i;
@@ -7,9 +8,11 @@ static unsigned log10i(size_t x) {
 }
 
 #define ASSERT(x) \
-	if ((res = (x))) goto fail;
+	if ((res = (x))) goto fail
+#define HEAP_ALLOC(x) \
+	if (!(x = basic_new_heap())) goto fail
 
-bool pend_init(struct pendulum_system *system) {
+bool sim_init(struct pendulum_system *system) {
 	bool ret = false;
 	CWRAPPER_OUTPUT_TYPE res = 0;
 
@@ -24,12 +27,14 @@ bool pend_init(struct pendulum_system *system) {
 	basic_new_stack(one);
 
 	// initialise system symbols
-	basic_new_stack(system->sym_gravity);
-	basic_new_stack(system->ke);
-	basic_new_stack(system->gpe);
-	basic_new_stack(system->lagrangian);
+	HEAP_ALLOC(system->sym_gravity);
+	HEAP_ALLOC(system->ke);
+	HEAP_ALLOC(system->gpe);
+	HEAP_ALLOC(system->lagrangian);
+	HEAP_ALLOC(system->time);
 
 	ASSERT(symbol_set(system->sym_gravity, "g"));
+	ASSERT(symbol_set(system->time, "t"));
 	basic_const_zero(system->ke);
 	basic_const_zero(system->gpe);
 	basic_const_zero(vx);
@@ -41,10 +46,10 @@ bool pend_init(struct pendulum_system *system) {
 		struct pendulum *p = &system->chain[i];
 
 		// initialise symbols for pendulum
-		basic_new_stack(p->sym_mass);
-		basic_new_stack(p->sym_length);
-		basic_new_stack(p->sym_angle);
-		basic_new_stack(p->sym_angular_velocity);
+		HEAP_ALLOC(p->sym_mass);
+		HEAP_ALLOC(p->sym_length);
+		HEAP_ALLOC(p->sym_angle);
+		HEAP_ALLOC(p->sym_angular_velocity);
 
 		// create unique name for the variable
 		unsigned str_size = 16 + log10i(i);
@@ -68,7 +73,9 @@ bool pend_init(struct pendulum_system *system) {
 
 		ASSERT(basic_mul(temp, p->sym_length, p->sym_angular_velocity)); // v = rω
 		ASSERT(basic_mul(vlx, vlx, temp));
-		ASSERT(basic_mul(vly, vly, temp)); // add velocity vector
+		ASSERT(basic_mul(vly, vly, temp));
+
+		// add velocity vector
 		ASSERT(basic_sub(vx, vx, vlx));
 		ASSERT(basic_add(vy, vy, vly));
 
@@ -105,11 +112,15 @@ bool pend_init(struct pendulum_system *system) {
 		struct pendulum *p = &system->chain[i];
 
 		// initialise symbols for pendulum
-		basic_new_stack(p->sym_part_deriv_angle);
-		basic_new_stack(p->sym_part_deriv_angular_velocity);
+		HEAP_ALLOC(p->sym_part_deriv_angle);
+		HEAP_ALLOC(p->sym_part_deriv_angular_velocity);
 
 		// partially differentiate Lagrangian function
+
 		ASSERT(basic_diff(p->sym_part_deriv_angle, system->lagrangian, p->sym_angle));
+		// note that angular velocity is treated as a separate variable when finding this partial derivative,
+		// not as the derivative of the angle w.r.t. time
+		// see https://math.stackexchange.com/a/2085001
 		ASSERT(basic_diff(p->sym_part_deriv_angular_velocity, system->lagrangian, p->sym_angular_velocity));
 	}
 
@@ -127,22 +138,25 @@ fail:
 	return ret;
 }
 
-bool pend_free(struct pendulum_system *system) {
-	basic_free_stack(system->sym_gravity);
-	basic_free_stack(system->ke);
-	basic_free_stack(system->gpe);
-	basic_free_stack(system->lagrangian);
+bool sim_free(struct pendulum_system *system) {
+	basic_free_heap(system->sym_gravity);
+	basic_free_heap(system->ke);
+	basic_free_heap(system->gpe);
+	basic_free_heap(system->lagrangian);
+	basic_free_heap(system->time);
 	for (unsigned i = 0; i < system->count; ++i) {
 		struct pendulum *p = &system->chain[i];
-		basic_free_stack(p->sym_mass);
-		basic_free_stack(p->sym_length);
-		basic_free_stack(p->sym_angle);
-		basic_free_stack(p->sym_angular_velocity);
+		basic_free_heap(p->sym_mass);
+		basic_free_heap(p->sym_length);
+		basic_free_heap(p->sym_angle);
+		basic_free_heap(p->sym_angular_velocity);
+		basic_free_heap(p->sym_part_deriv_angle);
+		basic_free_heap(p->sym_part_deriv_angular_velocity);
 	}
 	return true;
 }
 
-bool pend_step(struct pendulum_system *system) {
+bool sim_step(struct pendulum_system *system) {
 	for (unsigned i = 0; i < system->count; ++i) {
 		struct pendulum *p = &system->chain[i];
 		// testing
