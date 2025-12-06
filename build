@@ -13,5 +13,6 @@ debug)
 	;;
 esac
 
+shift
 mkdir -p out
-cc "${cc_args[@]}" -lm -lsymengine -Wall -Werror -Wno-error=unused-{{but-set-,}{parameter,variable},const-variable,function,label,local-typedefs,macros,value,variable} src/{main.c,display.c,sim.c,util.c,rk4.c} -o out/dpend
+cc "${cc_args[@]}" "$@" -lm -lsymengine -Wall -Werror -Wno-error=unused-{{but-set-,}{parameter,variable},const-variable,function,label,local-typedefs,macros,value,variable} src/{main.c,display.c,sim.c,util.c,rk4.c} -o out/dpend
