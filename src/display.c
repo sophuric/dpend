@@ -32,10 +32,11 @@ struct display_screen {
 #define INDEX_BIT(pos, screen) (1 << (INDEX(pos, screen) % CHAR_BIT)) // returns bit mask
 #define SCREEN_BUF_SIZE(screen) (((screen.w * screen.h) + CHAR_BIT - 1) / CHAR_BIT)
 
+#define CELL_IN_BOUNDS(pos, screen) ((pos).x >= 0 && (pos).y >= 0 && (pos).x < (screen).w && (pos).y < (screen).h)
 #define SET_BIT(char, mask, set) ((set) ? (char) | (mask) : (char) &~(mask))
-#define GET_CELL(pos, screen) ((screen.buf[INDEX_CHAR(pos, screen)] & INDEX_BIT(pos, screen)) != 0)
-#define SET_CELL(pos, set, screen)                                                    \
-	if ((pos).x >= 0 && (pos).y >= 0 && (pos).x < (screen).w && (pos).y < (screen).h) \
+#define GET_CELL(pos, screen) (CELL_IN_BOUNDS(pos, screen) ? ((screen.buf[INDEX_CHAR(pos, screen)] & INDEX_BIT(pos, screen)) != 0) : 0)
+#define SET_CELL(pos, set, screen)   \
+	if (CELL_IN_BOUNDS(pos, screen)) \
 	(screen.buf[INDEX_CHAR(pos, screen)] = SET_BIT(screen.buf[INDEX_CHAR(pos, screen)], INDEX_BIT(pos, screen), set))
 
 static struct display_data {
@@ -104,15 +105,17 @@ bool display_render(struct pendulum_system *system, const char *info) {
 	bool needs_clear = true;
 	// see https://stackoverflow.com/a/39562813
 	if (SCREEN.buf == NULL || buf_size > SCREEN.buf_size) {
-		// create new buffer if it doesn't exist yet or we are scaling up
+		// create new buffer if it doesn't exist yet or we are increasing pixel count
 		FREE(SCREEN.buf);
 		SCREEN.buf = calloc(1, buf_size);
+		if (!SCREEN.buf) goto fail;
 		needs_clear = false;
 	} else if (buf_size < SCREEN.buf_size) {
-		// realloc if we are scaling down
-		SCREEN.buf = realloc(SCREEN.buf, buf_size);
+		// realloc if we are decreasing pixel count
+		char *buf = realloc(SCREEN.buf, buf_size);
+		if (!buf) goto fail;
+		SCREEN.buf = buf;
 	}
-	if (!SCREEN.buf) goto fail;
 
 	if (buf_size != SCREEN.buf_size) eprintf("\x1b[2J"); // clear on resize
 
