@@ -213,6 +213,7 @@ fail:
 	vecbasic_free(time_args);
 	vecbasic_free(acc_system);
 	vecbasic_free(acc_solution);
+	vecbasic_free(acc_symbol);
 
 	mapbasicbasic_free(to_func_subs);
 	mapbasicbasic_free(to_sym_subs);
