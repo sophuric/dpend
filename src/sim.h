@@ -20,6 +20,6 @@ struct pendulum_system {
 
 bool sim_substitute(double *out, basic in, struct pendulum_system *system);
 bool sim_init(struct pendulum_system *system);
-bool sim_step(struct pendulum_system *system);
+bool sim_step(struct pendulum_system *system, int steps, double time_span);
 bool sim_free(struct pendulum_system *system);
 #endif

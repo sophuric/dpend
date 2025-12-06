@@ -289,41 +289,45 @@ bool sim_substitute(double *out, basic in, struct pendulum_system *system) {
 	return true;
 }
 
-static const int steps = 10;
 static const int var_per_pendulum = 2;
-static struct pendulum_system *current_system;
+
+static struct pendulum_system *dydt_system;
 static bool dydt_success;
 
 static void dydt(double t, double y[], double out[]) {
-	// set all zeros beforehand
-	for (int i = 0; i < current_system->count; ++i) out[i * var_per_pendulum] = 0, out[i * var_per_pendulum + 1] = 0;
+	struct pendulum_system *system = dydt_system;
 
-	for (int i = 0; i < current_system->count; ++i) {
-		struct pendulum *pend = &current_system->chain[i];
+	// set all zeros beforehand as failsafe
+	for (int i = 0; i < system->count; ++i) out[i * var_per_pendulum] = 0, out[i * var_per_pendulum + 1] = 0;
 
-		for (int j = 0; j < current_system->count; ++j) {
-			struct pendulum *pend2 = &current_system->chain[j];
+	for (int i = 0; i < system->count; ++i) {
+		struct pendulum *pend = &system->chain[i];
+
+		for (int j = 0; j < system->count; ++j) {
+			struct pendulum *pend2 = &system->chain[j];
 			// using values from the solver
 			pend2->angle = y[j * var_per_pendulum];
 			pend2->angvel = y[j * var_per_pendulum + 1];
 		}
 
-		double number;
-		if (!sim_substitute(&number, pend->solution_angacc, current_system)) goto fail;
+		double angacc;
+		if (!sim_substitute(&angacc, pend->solution_angacc, system)) goto fail;
 
-		// eq should now be evaluated to a number
-		out[i * var_per_pendulum] = y[i * var_per_pendulum + 1]; // angle changes by angvel
-		out[i * var_per_pendulum + 1] = number;                  // angvel changes by the number
+		out[i * var_per_pendulum] = y[i * var_per_pendulum + 1]; // angle changes by angular velocity
+		out[i * var_per_pendulum + 1] = angacc;                  // angular velocity changes by angular acceleration
 	}
 
 	dydt_success = true;
 fail:
 }
 
-bool sim_step(struct pendulum_system *system) {
-	current_system = system;
+bool sim_step(struct pendulum_system *system, int steps, double time_span) {
+	if (steps < 1) return false;
+	if (time_span <= 0) return false;
+
+	dydt_system = system;
 	int variables = system->count * var_per_pendulum;
-	double tspan[2] = {0, 0.01};
+	double tspan[2] = {0, time_span};
 	double y[variables * (steps + 1)];
 	double t[steps + 1];
 

@@ -15,6 +15,8 @@
 #include "display.h"
 #include "sim.h"
 
+#include "config.h"
+
 static bool running = false;
 
 static struct pendulum_system pendulum_system = {0};
@@ -99,45 +101,61 @@ int main(void) {
 		sigaction(signal, &sa, NULL);
 	}
 
-	pendulum_system.count = 2,
-	pendulum_system.gravity = 9.81,
-	pendulum_system.chain = (struct pendulum[]) {
-	        {.mass = 1, .length = 1, .angvel = 0, .angle = M_PI + 0.1},
-	        {.mass = 1, .length = 1, .angvel = 0, .angle = 0.2       }
-    };
+	CONFIGURE(pendulum_system);
 
 	if (!start()) return 3;
 
-#define WAIT ((nsec_t) SEC * 0.01)
-	nsec_t dest = 0;
-
 	char str[1024] = "";
 
-	for (;;) {
+	const nsec_t wait_time = SEC / (MAX_FPS);
+	nsec_t dest = get_time(), dest_last = dest;
+	bool frame_skip = FRAME_SKIP;
+	bool lag = false, first = true;
+	nsec_t last_lag = 0;
+
+	while (1) {
 		nsec_t time = get_time();
 
-		if (time > dest) dest = time + WAIT; // if more than one second has elapsed, reset the offset and wait until 1 second has passed since now
-		nsec_t delay = dest - time;          // wait until destination time
+		if (time > dest) dest = time + wait_time; // if more than one second has elapsed, reset the offset and wait until 1 second has passed since now
+		nsec_t delay = dest - time;               // wait until destination time
 
-		if (dest == time + WAIT || nsleep(delay)) {
+		if (dest == time + wait_time || nsleep(delay)) {
+			nsec_t frame_time = dest - dest_last;
+			double time_advance = (SIMULATION_SPEED) * ((frame_skip ? frame_time : wait_time) / (double) SEC);
+
 			time = get_time();
-			if (!sim_step(&pendulum_system)) goto fail;
+			if (!first) {
+				if (!sim_step(&pendulum_system, (STEPS_PER_FRAME), time_advance)) goto fail;
+
+				if (frame_time != wait_time) {
+					lag = true;
+					last_lag = time;
+				}
+			}
+			bool show_lag = lag && time < last_lag + SEC;
 
 			double ke, gpe, total;
 			if (!sim_substitute(&ke, pendulum_system.ke, &pendulum_system)) goto fail;
 			if (!sim_substitute(&gpe, pendulum_system.gpe, &pendulum_system)) goto fail;
 			total = ke + gpe;
 
-			nsec_t diff_time = get_time() - time;
+			nsec_t sim_time = get_time() - time;
 			int printf_res = snprintf(str, sizeof(str),
+			                          "             FPS: %10.3f Hz%s%s%s\n"
 			                          " Simulation time: %10" PRIuMAX " ns\n"
 			                          "  Kinetic energy: %10.3f J\n"
 			                          "Potential energy: %10.3f J\n"
 			                          "    Total energy: %10.3f J\n",
-			                          diff_time, ke, gpe, total);
+			                          SEC / (double) frame_time,
+			                          show_lag ? " (" : "",
+			                          show_lag ? (frame_skip ? "frame skipping" : "lagging") : "",
+			                          show_lag ? ")" : "",
+			                          sim_time, ke, gpe, total);
 
 			if (printf_res < 0 || printf_res >= sizeof(str)) goto fail;
-			dest += WAIT; // add delay amount to destination time so we can precisely run the code on that interval
+			dest_last = dest;
+			dest += wait_time; // add delay amount to destination time so we can precisely run the code on that interval
+			first = false;
 		}
 		if (!display_render(&pendulum_system, str)) goto fail;
 	}
